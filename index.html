@@ -250,6 +250,26 @@ a{color:inherit}
 @media (max-width:900px){#gz .mission-card{top:64px;max-width:calc(100% - 32px);border-radius:16px}}
 #gz .compat{position:absolute;right:28px;bottom:28px;z-index:2;max-width:260px;font-size:12px;line-height:16px;color:#a1a1a6;background:rgba(29,29,31,.55);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 12px;pointer-events:none}
 @media (max-width:640px){#gz .compat{display:none}}
+#gz .gostart{font:500 12px/16px var(--sans);letter-spacing:0;border:1px solid rgba(255,255,255,.14);background:rgba(29,29,31,.6);color:#f5f5f7;border-radius:999px;padding:4px 10px;pointer-events:none}
+#gz .gostart.live{pointer-events:auto;cursor:pointer;background:#fff;color:#1d1d1f;border-color:#fff;font-size:15px;line-height:20px;padding:8px 22px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:3}
+#gz .gostart.live:hover{transform:translate(-50%,-50%) scale(1.06)}
+#gz.overstart canvas{cursor:pointer}
+#gz .me.ready::before{animation:gz-pulse 1.6s ease-in-out infinite}
+#gz.overstart .me.ready::before{animation:none;transform:scale(1.45);background:rgba(255,255,255,.12)}
+@keyframes gz-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.55);opacity:.45}}
+@media (prefers-reduced-motion:reduce){#gz .me.ready::before{animation:none}}
+#gz .tag.hint{font-size:12px;color:rgba(255,255,255,.85);background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:4px 11px}
+/* coach mark: anchored bubble with a caret, bobbing gently, flips below near the top edge */
+#gz .coach{position:absolute;z-index:4;transform:translate(-50%,-100%);pointer-events:none;font:500 13px/18px var(--sans);color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.24);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;padding:6px 13px;white-space:nowrap;animation:gz-bob 1.8s ease-in-out infinite}
+#gz .coach::after{content:"";position:absolute;left:var(--cx,50%);top:100%;width:9px;height:9px;margin:-4px 0 0 -5px;background:inherit;border:inherit;border-width:0 1px 1px 0;transform:rotate(45deg);-webkit-backdrop-filter:none;backdrop-filter:none}
+#gz .coach.below{transform:translate(-50%,0);animation-name:gz-bob-b}
+#gz .coach.below::after{top:0;border-width:1px 0 0 1px}
+@keyframes gz-bob{0%,100%{margin-top:0}50%{margin-top:-4px}}
+@keyframes gz-bob-b{0%,100%{margin-top:0}50%{margin-top:4px}}
+@media (prefers-reduced-motion:reduce){#gz .coach{animation:none}}
+#gz .mission-card .skip{pointer-events:auto;flex:none;margin-left:4px;font:500 12px/16px var(--sans);color:#a1a1a6;background:none;border:0;border-left:1px solid rgba(255,255,255,.16);padding:2px 0 2px 10px;cursor:pointer}
+#gz .mission-card .skip:hover{color:#fff}
+#gz .mission-card{top:70px;max-width:min(640px,calc(100% - 56px));border-radius:20px}
 </style></head><body>
 <nav class="gnav"><div class="in"><a class="name" href="#top">Haram Joung</a><div class="links"><a href="#play">Play</a><a href="#overview">Overview</a><a href="#week1">Week 1</a><a href="#week2">Week 2</a><a href="#week3">Week 3</a><a href="#response">Response</a><a href="#poly">Poly-Opticon</a></div><a class="pill solid sm" href="#play">Play the game</a></div></nav>
 <main id="top">
@@ -280,7 +300,7 @@ a{color:inherit}
         <p>Someone is always watching the courtyard. Arrange the furniture, then cross the courtyard without falling into the gaze. Every level brings a new mission.</p>
         <div class="howto">
           <b><em>Plan</em></b><span>Drag furniture to move it. Click to rotate.</span>
-          <b><em>Go</em></b><span>Your dot follows the cursor. Walls stop you.</span>
+          <b><em>Go</em></b><span>Click your dot to set off. It follows the cursor; walls stop you.</span>
           <b><em>Eye</em></b><span>A red line blinks before the eye opens. Get behind something.</span>
         </div>
         <div class="flexrow"><button class="btn" type="button" id="startBtn">Start</button><a class="btn ghost" href="#overview">Read the project</a></div>
@@ -434,9 +454,10 @@ const gaze = (() => {
   piece(6.2, 2.8, Math.PI, g => { const m = mat(COL.yellow), w = 1.1, h = 1.45, d = .9; panel(g, m, w, h, t, 0, h/2, -d/2); panel(g, m, t, h, d, -w/2, h/2, 0); panel(g, m, t, h, d, w/2, h/2, 0); panel(g, m, w, t, d, 0, h, 0); panel(g, m, w-.05, t, .45, 0, .45, -.2, 0, true); });
 
   const me = document.createElement('div'); me.className = 'me'; stage.appendChild(me);
-  stage.insertAdjacentHTML('beforeend', '<div class="mission-card"><span class="mk">Mission</span><span id="mission"></span></div>');
+  stage.insertAdjacentHTML('beforeend', '<div class="mission-card"><span class="mk" id="mk">Mission</span><span id="mission"></span><button type="button" class="skip" id="skipTut" hidden>Skip tutorial</button></div><div class="coach" id="coach" hidden><span id="coachT"></span></div>');
   stage.querySelector('.hud').insertAdjacentHTML('beforeend', '<span id="timeWrap" hidden>Time <b id="time">0</b></span>');
   const tagS = document.createElement('div'); tagS.className = 'tag'; tagS.textContent = 'START'; stage.appendChild(tagS);
+  let started = false;
   const person = new THREE.Vector3(START.x, 0, START.z), target = person.clone();
   const EYE_SVG = '<svg viewBox="0 0 52 34"><g class="open"><path d="M3 17 Q26 -3 49 17 Q26 37 3 17Z" fill="#000" stroke="#fff" stroke-width="1.6"/><g class="iris"><circle cx="26" cy="17" r="8" fill="#fff"/><circle cx="26" cy="17" r="3.4" fill="#ff1d1d"/></g></g><g class="closed" fill="none" stroke="#ff1d1d" stroke-width="1.8" stroke-linecap="round"><path d="M3 15 Q26 31 49 15"/><path d="M14 22 L11 29 M26 25 L26 32 M38 22 L41 29"/></g></svg>';
   const gazeSolid = new THREE.LineBasicMaterial({color:RED}), gazeDash = new THREE.LineDashedMaterial({color:RED, dashSize:.2, gapSize:.15});
@@ -462,18 +483,57 @@ const gaze = (() => {
     'The colours come from a frozen, blurred video call. My room, smeared across a screen, became the furniture.'
   ];
   function setPhase(p){
-    phase = p; stage.classList.toggle('plan', p === 'plan'); $('goBtn').textContent = p === 'run' ? 'Back to plan' : 'Go';
-    if (p === 'plan'){ resetMission(); $('phT').textContent = 'Plan'; $('phS').textContent = 'Drag the furniture to hide your route. Click a piece to rotate it.'; person.set(START.x, 0, START.z); target.copy(person); eyes.forEach(e => { e.phase = 'rest'; e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); }
+    phase = p; stage.classList.toggle('plan', p === 'plan'); $('goBtn').textContent = 'Back to plan'; $('goBtn').hidden = p !== 'run'; me.classList.toggle('ready', p === 'plan'); if (p !== 'plan') stage.classList.remove('overstart');
+    if (p === 'plan'){ resetMission(); $('phT').textContent = 'Plan'; $('phS').textContent = 'Drag the furniture to hide your route. Click a piece to rotate it. Click your dot when ready.'; person.set(START.x, 0, START.z); target.copy(person); eyes.forEach(e => { e.phase = 'rest'; e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); }
     if (p === 'run'){ attempts++; $('att').textContent = attempts; $('phT').textContent = 'Go'; $('phS').textContent = 'Move the cursor to walk. Complete the mission without being seen.'; resetMission(); eyes.forEach((e,i) => { e.phase = 'rest'; e.t = 0; e.rest = T(2.4 + i*1.6); }); }
   }
   $('lvl').textContent = level; $('neyes').textContent = eyeCount();
   let toastT = 0;
   function toast(msg, bad){ const e = $('toast'); e.textContent = msg; e.className = 'toast on' + (bad ? ' bad' : ''); toastT = 1.2; }
   function failed(msg){ toast(msg, true); me.classList.add('seen'); phase = 'caught'; setTimeout(() => { me.classList.remove('seen'); if (phase === 'caught') setPhase('plan'); }, 1300); }
-  function caught(){ toast('Seen', true); me.classList.add('seen'); phase = 'caught'; setTimeout(() => { me.classList.remove('seen'); if (phase === 'caught') setPhase('plan'); }, 1300); }
-  function escaped(){ phase = 'card'; eyes.forEach(e => { e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); if (level > best){ best = level; store.set('gaze-best-level', best); $('best').textContent = best; } $('cardK').textContent = `Level ${level} cleared · ${attempts} attempt${attempts === 1 ? '' : 's'}`; $('cardP').textContent = CARDS[(level-1) % CARDS.length]; $('card').hidden = false; $('cardBtn').focus(); }
-  $('cardBtn').addEventListener('click', () => { level++; M = MISSIONS[level-1] || genMission(level); buildMission(); attempts = 0; $('att').textContent = 0; $('lvl').textContent = level; $('neyes').textContent = eyeCount(); $('card').hidden = true; setPhase('plan'); toast(`Level ${level}`); });
-  $('startBtn').addEventListener('click', () => { $('intro').hidden = true; setPhase('plan'); });
+  function caught(){ toast(tut === 3 ? 'Seen — hide behind a piece' : 'Seen', true); me.classList.add('seen'); phase = 'caught'; setTimeout(() => { me.classList.remove('seen'); if (phase === 'caught') setPhase('plan'); }, 1300); }
+  // ---- tutorial (level 0): learn by doing, ~30 s -----------------------
+  let tut = store.get('gaze-tut-done', false) ? -1 : 0, tutClear = false;
+  const TUT = [
+    {t:'Click your dot to set off.', coach:'Click your dot'},
+    {t:'Your dot follows the cursor. Walk to the circle.', way:[[-4.2, -.6]], coach:'Walk here'},
+    {t:'Drag a piece to move it. Click it to rotate.', coach:'Drag me'},
+    {t:'An eye will look. When its red line blinks, hide behind a piece.', eyes:1, coach:'Click your dot'}
+  ];
+  function setTut(n){
+    tut = n; const d = TUT[n]; M = {t:d.t, eyes:d.eyes || 0, way:d.way, exits:[]}; buildMission(); resetMission();
+    $('mk').textContent = 'Tutorial ' + (n + 1) + '/4'; $('skipTut').hidden = false; $('lvl').textContent = '–'; $('neyes').textContent = M.eyes; tutClear = false;
+  }
+  function endTut(skip){
+    tut = -1; store.set('gaze-tut-done', true); $('skipTut').hidden = true; $('mk').textContent = 'Mission'; $('coach').hidden = true;
+    level = 1; M = MISSIONS[0]; buildMission(); attempts = 0; $('att').textContent = 0; $('lvl').textContent = 1; $('neyes').textContent = eyeCount();
+    eyes.forEach(e => { e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; });
+    if (skip){ $('card').hidden = true; setPhase('plan'); toast('Level 1'); return; }
+    phase = 'card'; $('cardK').textContent = 'Tutorial complete'; $('cardH').textContent = 'You’re ready.'; $('cardP').textContent = 'Level 1: reach the Exit without being seen. Each level after that brings a new mission.'; $('cardBtn').textContent = 'Start level 1'; $('card').hidden = false; $('cardBtn').focus(); tutCard = true;
+  }
+  let tutCard = false;
+  $('skipTut').addEventListener('click', () => endTut(true));
+  function coachTarget(mx, my, W, H){
+    if (tut < 0) return (phase === 'plan' && !started) ? [mx, my, 'Click your dot to start'] : null;
+    const c = TUT[tut].coach;
+    if (tut === 0 || tut === 3) return phase === 'plan' ? [mx, my, c] : null;
+    if (tut === 1) return phase === 'run' && ways[0] && !ways[0].done ? [...place(tmpEl, tmpV.set(ways[0].x, .2, ways[0].z), W, H), c] : null;
+    if (tut === 2) return phase === 'plan' && !dragging ? [...place(tmpEl, tmpV.set(pieces[1].position.x, 2.2, pieces[1].position.z), W, H), c] : null;
+    return null;
+  }
+  const tmpEl = document.createElement('div');
+  function coachFrame(mx, my, W, H){
+    const el = $('coach'), t = coachTarget(mx, my, W, H);
+    if (!t || $('intro').hidden === false || !$('card').hidden){ el.hidden = true; return; }
+    el.hidden = false; if ($('coachT').textContent !== t[2]) $('coachT').textContent = t[2];
+    const bw = el.offsetWidth, below = t[1] < 110;
+    const x = Math.max(bw/2 + 12, Math.min(W - bw/2 - 12, t[0]));
+    el.style.left = x + 'px'; el.style.top = (below ? t[1] + 26 : t[1] - 26) + 'px';
+    el.classList.toggle('below', below); el.style.setProperty('--cx', (t[0] - x + bw/2) + 'px');
+  }
+  function escaped(){ $('cardH').textContent = 'You crossed unseen.'; $('cardBtn').textContent = 'Next level'; phase = 'card'; eyes.forEach(e => { e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); if (level > best){ best = level; store.set('gaze-best-level', best); $('best').textContent = best; } $('cardK').textContent = `Level ${level} cleared · ${attempts} attempt${attempts === 1 ? '' : 's'}`; $('cardP').textContent = CARDS[(level-1) % CARDS.length]; $('card').hidden = false; $('cardBtn').focus(); }
+  $('cardBtn').addEventListener('click', () => { if (tutCard){ tutCard = false; $('card').hidden = true; setPhase('plan'); toast('Level 1'); return; } level++; M = MISSIONS[level-1] || genMission(level); buildMission(); attempts = 0; $('att').textContent = 0; $('lvl').textContent = level; $('neyes').textContent = eyeCount(); $('card').hidden = true; setPhase('plan'); toast(`Level ${level}`); });
+  $('startBtn').addEventListener('click', () => { $('intro').hidden = true; if (tut === 0) setTut(0); setPhase('plan'); });
   $('goBtn').addEventListener('click', () => { if (phase === 'plan') setPhase('run'); else if (phase === 'run') setPhase('plan'); });
   $('infoBtn').addEventListener('click', () => { const d = $('drawer'); d.hidden = !d.hidden; $('infoBtn').setAttribute('aria-expanded', String(!d.hidden)); });
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), floor = new THREE.Plane(new THREE.Vector3(0,1,0), 0), pt = new THREE.Vector3(), off = new THREE.Vector3();
@@ -482,10 +542,11 @@ const gaze = (() => {
   function setNdc(e){ const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera); ray.far = Infinity; }
   function pick(){ const h = ray.intersectObjects(solids, false); const g = h.length ? h[0].object.userData.root : null; if (g && g.userData.locked){ toast('Bolted down', true); return null; } return g; }
   const clamp = (v, m) => Math.max(-m, Math.min(m, v));
-  stage.addEventListener('pointerdown', e => { if (!onCanvas(e)) return; setNdc(e); if (phase === 'plan'){ const p = pick(); if (p && ray.ray.intersectPlane(floor, pt)){ dragging = p; downAt = [e.clientX, e.clientY]; dragMoved = false; off.copy(p.position).sub(pt); stage.classList.add('grabbing'); stage.setPointerCapture(e.pointerId); } } else if (phase === 'run' && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
-  stage.addEventListener('pointermove', e => { setNdc(e); if (dragging){ if (!dragMoved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) return; dragMoved = true; if (ray.ray.intersectPlane(floor, pt)){ dragging.position.x = clamp(pt.x + off.x, ROOM_W/2 - .8); dragging.position.z = clamp(pt.z + off.z, ROOM_D/2 - .8); } return; } if (phase === 'run' && (e.pointerType === 'mouse' || e.buttons) && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
+  const onStart = () => ray.ray.intersectPlane(floor, pt) && Math.abs(pt.x - START.x) < START.w/2 + .3 && Math.abs(pt.z - START.z) < START.d/2 + .3;
+  stage.addEventListener('pointerdown', e => { if (!onCanvas(e)) return; setNdc(e); if (phase === 'plan'){ const p = pick(); if (!p && onStart()){ started = true; setPhase('run'); if (tut === 0){ setTut(1); } if (ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); return; } if (p && ray.ray.intersectPlane(floor, pt)){ dragging = p; downAt = [e.clientX, e.clientY]; dragMoved = false; off.copy(p.position).sub(pt); stage.classList.add('grabbing'); stage.setPointerCapture(e.pointerId); } } else if (phase === 'run' && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
+  stage.addEventListener('pointermove', e => { setNdc(e); if (phase === 'plan' && !dragging) stage.classList.toggle('overstart', onCanvas(e) && onStart()); if (dragging){ if (!dragMoved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) return; dragMoved = true; if (ray.ray.intersectPlane(floor, pt)){ dragging.position.x = clamp(pt.x + off.x, ROOM_W/2 - .8); dragging.position.z = clamp(pt.z + off.z, ROOM_D/2 - .8); } return; } if (phase === 'run' && (e.pointerType === 'mouse' || e.buttons) && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
   const spins = new Map();
-  const end = e => { if (dragging && !dragMoved && e && e.type === 'pointerup'){ const g = dragging, from = spins.has(g) ? spins.get(g).to : g.rotation.y; spins.set(g, {to: from + Math.PI/4}); } dragging = null; stage.classList.remove('grabbing'); };
+  const end = e => { if (tut === 2 && dragging && e && e.type === 'pointerup'){ setTimeout(() => { if (tut === 2){ toast('Nice'); setTut(3); setPhase('plan'); } }, 350); } if (dragging && !dragMoved && e && e.type === 'pointerup'){ const g = dragging, from = spins.has(g) ? spins.get(g).to : g.rotation.y; spins.set(g, {to: from + Math.PI/4}); } dragging = null; stage.classList.remove('grabbing'); };
   stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
   const clock = new THREE.Clock(), head = new THREE.Vector3(), dir = new THREE.Vector3(), pr = new THREE.Vector3(), tmpV = new THREE.Vector3();
   function place(e, v, W, H){ pr.copy(v).project(camera); const x = (pr.x*.5+.5)*W, y = (-pr.y*.5+.5)*H; e.style.left = x+'px'; e.style.top = y+'px'; return [x,y]; }
@@ -501,13 +562,15 @@ const gaze = (() => {
       if (dist > .02){ const step = Math.min(dist, SPEED*dt), nx = person.x + dx/dist*step, nz = person.z + dz/dist*step; if (!blocked(nx, nz)){ person.x = nx; person.z = nz; } else if (!blocked(nx, person.z)) person.x = nx; else if (!blocked(person.x, nz)) person.z = nz; }
       ways.forEach((w, i) => { if (!w.done && Math.hypot(person.x - w.x, person.z - w.z) < .6){ if (M.ordered && i !== nextWay){ if (!w.warned){ w.warned = true; toast('Go to ' + '①②③④⑤'[nextWay] + ' first', true); setTimeout(() => w.warned = false, 1500); } return; } w.done = true; nextWay++; w.mesh.material.color.setHex(0x444444); w.tag.classList.add('done'); toast('✓'); } });
       if (hold && !hold.done){ if (Math.hypot(person.x - hold.x, person.z - hold.z) < .86 && Math.hypot(target.x - person.x, target.z - person.z) < .5){ hold.t += dt; hold.fill.scale.setScalar(Math.max(.001, Math.min(1, hold.t/hold.sec))); if (hold.t >= hold.sec){ hold.done = true; hold.tag.classList.add('done'); toast('✓'); } } else if (hold.t > 0){ hold.t = 0; hold.fill.scale.setScalar(.001); } }
-      const ready = ways.every(w => w.done) && (!hold || hold.done);
+      if (tut >= 0){ if (tut === 1 && ways.every(w => w.done)){ setTut(2); setPhase('plan'); toast('Nice'); } }
+      const ready = tut < 0 && ways.every(w => w.done) && (!hold || hold.done);
       exits.forEach(x => { if (!x.done && inPad(x, person.x, person.z)){ if (!ready){ if (!x.warned){ x.warned = true; toast('Mission not finished', true); setTimeout(() => x.warned = false, 1500); } return; } x.done = true; x.line.material.color.setHex(0x444444); x.tag.classList.add('done'); } });
       if (ready && exits.every(x => x.done)) escaped();
+      else if (tut === 3 && tutClear){ endTut(false); }
       else if (M.time){ timeLeft -= dt; $('time').textContent = Math.max(0, Math.ceil(timeLeft)); if (timeLeft <= 0) failed('Too slow'); }
     }
     const [mx, my] = place(me, person, W, H);
-    place(tagS, tmpV.set(START.x, 0, START.z + START.d/2 + .5), W, H);
+    place(tagS, tmpV.set(START.x, 0, START.z + START.d/2 + .5), W, H); coachFrame(mx, my, W, H);
     ways.forEach(w => place(w.tag, tmpV.set(w.x, 0, w.z + .9), W, H));
     exits.forEach(x => place(x.tag, tmpV.set(x.x, 0, x.z + x.d/2 + .5), W, H));
     if (hold) place(hold.tag, tmpV.set(hold.x, 0, hold.z + 1.35), W, H);
@@ -516,9 +579,9 @@ const gaze = (() => {
       e.s.visible = e.d.visible = e.mk.visible = false;
       if (phase !== 'run' || i >= eyeCount()){ if (phase !== 'caught') e.el.className = 'eye'; return; }
       e.t += dt;
-      if (e.phase === 'rest' && e.t > e.rest){ placeEye(e); e.phase = 'warn'; e.t = 0; e.judged = false; }
+      if (e.phase === 'rest' && e.t > e.rest){ placeEye(e); if (tut === 3) e.pos.set(-3, EYE_H, -(ROOM_D/2 - .25)); e.phase = 'warn'; e.t = 0; e.judged = false; }
       else if (e.phase === 'warn' && e.t > WARN){ e.phase = 'open'; e.t = 0; }
-      else if (e.phase === 'open' && e.t > OPEN){ e.phase = 'rest'; e.t = 0; e.rest = restTime(); }
+      else if (e.phase === 'open' && e.t > OPEN){ if (tut === 3 && phase === 'run') tutClear = true; e.phase = 'rest'; e.t = 0; e.rest = restTime(); }
       const [ex, ey] = place(e.el, e.pos, W, H);
       e.el.className = 'eye' + (e.phase === 'warn' ? ' on warn' : e.phase === 'open' ? ' on' : '');
       if (e.phase !== 'open'){ e.el.style.setProperty('--open', '1'); return; }
