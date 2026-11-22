@@ -243,6 +243,11 @@ a{color:inherit}
 #gz .howto em{font:500 13px/18px var(--sans);font-style:normal;color:#fff;background:#1d1d1f;border-radius:999px;padding:4px 10px}
 @media (max-width:640px){#gz .sheet-inner{padding:28px 24px;border-radius:28px}#gz .phase{display:none}#gz .hud span:nth-child(n+3){display:none}#gz #infoBtn{display:none}}
 #gz .flexrow{display:flex;gap:10px;flex-wrap:wrap}
+#gz .mission-card{position:absolute;left:50%;top:24px;transform:translateX(-50%);z-index:2;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100% - 420px));padding:8px 16px 8px 8px;background:rgba(29,29,31,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:999px;font-size:13px;line-height:18px;color:#f5f5f7;pointer-events:none}
+#gz .mission-card .mk{flex:none;font-weight:500;font-size:12px;color:#1d1d1f;background:#f5f5f7;border-radius:999px;padding:3px 10px}
+#gz .mtag{font-family:var(--sans);font-size:13px;letter-spacing:0;color:#f5f5f7;background:rgba(29,29,31,.6);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:3px 9px}
+#gz .mtag.done{color:#6e6e73;text-decoration:line-through;border-color:rgba(255,255,255,.06)}
+@media (max-width:900px){#gz .mission-card{top:64px;max-width:calc(100% - 32px);border-radius:16px}}
 </style></head><body>
 <nav class="gnav"><div class="in"><a class="name" href="#top">Haram Joung</a><div class="links"><a href="#play">Play</a><a href="#overview">Overview</a><a href="#week1">Week 1</a><a href="#week2">Week 2</a><a href="#week3">Week 3</a><a href="#response">Response</a><a href="#poly">Poly-Opticon</a></div><a class="pill solid sm" href="#play">Play the game</a></div></nav>
 <main id="top">
@@ -270,7 +275,7 @@ a{color:inherit}
       <div class="sheet-inner">
         <div class="kicker">Interactive · Methods of Investigating</div>
         <h1 class="kw"><b>Pan</b><i>opticon</i> → <b>Poly</b><i>opticon</i></h1>
-        <p>Someone is always watching the courtyard. Arrange the furniture, then cross from Start to Exit without falling into the gaze.</p>
+        <p>Someone is always watching the courtyard. Arrange the furniture, then cross the courtyard without falling into the gaze. Every level brings a new mission.</p>
         <div class="howto">
           <b><em>Plan</em></b><span>Drag furniture to move it. Click to rotate.</span>
           <b><em>Go</em></b><span>Your dot follows the cursor. Walls stop you.</span>
@@ -329,12 +334,50 @@ const gaze = (() => {
   const room = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(ROOM_W, ROOM_D)), lm(0x2b2b2b)); room.rotation.x = -Math.PI/2; scene.add(room);
   const START = {x:-9.0, z:0, w:1.6, d:2.4}, EXIT = {x:9.0, z:0, w:1.6, d:2.4};
   function pad(p, color, dashed){ const g = new THREE.EdgesGeometry(new THREE.PlaneGeometry(p.w, p.d)); const m = dashed ? new THREE.LineDashedMaterial({color, dashSize:.2, gapSize:.15}) : lm(color); const l = new THREE.LineSegments(g, m); l.rotation.x = -Math.PI/2; l.position.set(p.x, .01, p.z); if (dashed) l.computeLineDistances(); scene.add(l); }
-  pad(START, 0x777777, true); pad(EXIT, 0xffffff, false);
+  pad(START, 0x777777, true);
+  // ---- missions -------------------------------------------------------
+  const MISSIONS = [
+    {t:'Reach the Exit.', eyes:1},
+    {t:'Stop at the bench ① on the way, then reach the Exit.', eyes:1, way:[[-1.5, 3.1]]},
+    {t:'Pick up both notes, ① then ②, then reach the Exit.', eyes:2, way:[[-3.2, -4.4], [4.6, 3.2]], ordered:true},
+    {t:'Two ways out. Pass through Exit A and Exit B — either order.', eyes:2, exits:[{x:9, z:0, w:1.6, d:2.4, n:'A'}, {x:.5, z:-5.1, w:2.4, d:1.4, n:'B'}]},
+    {t:'Stand still in the circle for 3 seconds, then reach the Exit.', eyes:2, hold:[0, .4, 3]},
+    {t:'Beat the clock: touch ① and reach the Exit within 20 seconds.', eyes:2, way:[[-1, -4.5]], time:20},
+    {t:'Two pieces are bolted down (dark). Visit ① ② ③ in order, then exit.', eyes:3, way:[[-6.4, 2.9], [1.5, 0], [4.2, -4.6]], ordered:true, lock:[1, 4]},
+    {t:'Visit both notes, hold in the circle for 2 seconds, then pass through both exits — 30 seconds.', eyes:3, way:[[-4, -4.5], [3.4, 3.1]], hold:[-1, .8, 2], exits:[{x:9, z:0, w:1.6, d:2.4, n:'A'}, {x:1.5, z:-5.1, w:2.4, d:1.4, n:'B'}], time:30}
+  ];
+  const rnd = (a, b) => a + Math.random()*(b - a);
+  function genMission(lv){ // endless levels after the hand-made set
+    const m = {eyes:3, ordered: Math.random() < .5}; const n = 2 + Math.min(2, Math.floor((lv - 8)/2)); m.way = [];
+    while (m.way.length < n){ const p = [rnd(-7, 7), rnd(-4.8, 3.1)]; if (m.way.every(q => Math.hypot(q[0]-p[0], q[1]-p[1]) > 3)) m.way.push(p); }
+    if (Math.random() < .5) m.hold = [rnd(-4, 4), rnd(-3, 3), 2];
+    if (Math.random() < .4) m.exits = [{x:9, z:0, w:1.6, d:2.4, n:'A'}, {x:rnd(-4, 4), z:-5.1, w:2.4, d:1.4, n:'B'}];
+    m.time = Math.max(18, 34 - (lv - 8)*2);
+    m.t = [m.ordered ? 'Visit the marks in order' : 'Visit every mark', m.hold ? 'hold in the circle' : '', m.exits ? 'pass through both exits' : 'reach the Exit'].filter(Boolean).join(', ') + ` — ${m.time} seconds.`;
+    return m;
+  }
+  const mGroup = new THREE.Group(); scene.add(mGroup);
+  let M = MISSIONS[0], ways = [], exits = [], hold = null, timeLeft = 0, nextWay = 0;
+  const ringGeo = new THREE.RingGeometry(.42, .52, 40);
+  function mtag(txt, cls){ const d = document.createElement('div'); d.className = 'tag mtag' + (cls ? ' ' + cls : ''); d.textContent = txt; stage.appendChild(d); return d; }
+  function buildMission(){
+    while (mGroup.children.length) mGroup.remove(mGroup.children[0]);
+    stage.querySelectorAll('.mtag').forEach(d => d.remove());
+    ways = (M.way || []).map((p, i) => { const mesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.DoubleSide})); mesh.rotation.x = -Math.PI/2; mesh.position.set(p[0], .02, p[1]); mGroup.add(mesh); return {x:p[0], z:p[1], mesh, tag:mtag(M.ordered || (M.way.length > 1) ? '①②③④⑤'[i] : '①'), done:false}; });
+    exits = (M.exits || [EXIT]).map(p => { const g = new THREE.EdgesGeometry(new THREE.PlaneGeometry(p.w, p.d)); const l = new THREE.LineSegments(g, lm(0xffffff)); l.rotation.x = -Math.PI/2; l.position.set(p.x, .01, p.z); mGroup.add(l); return {...p, line:l, tag:mtag(M.exits ? 'EXIT ' + p.n : 'EXIT', 'exit'), done:false}; });
+    hold = null;
+    if (M.hold){ const [x, z, sec] = M.hold; const ring = new THREE.Mesh(new THREE.RingGeometry(.86, .95, 48), new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.DoubleSide})); ring.rotation.x = -Math.PI/2; ring.position.set(x, .02, z); const fillM = new THREE.Mesh(new THREE.CircleGeometry(.86, 48), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.35, side:THREE.DoubleSide})); fillM.rotation.x = -Math.PI/2; fillM.position.set(x, .015, z); fillM.scale.setScalar(.001); mGroup.add(ring, fillM); hold = {x, z, sec, t:0, done:false, fill:fillM, tag:mtag('HOLD ' + sec + 's')}; }
+    pieces.forEach((g, i) => { const locked = (M.lock || []).includes(i); g.userData.locked = locked; g.traverse(o => { if (o.isMesh){ o.material.color.setHex(locked ? 0x3a3a3a : o.material.userData.base); } }); });
+    $('mission').textContent = M.t; $('timeWrap').hidden = !M.time;
+  }
+  function resetMission(){ nextWay = 0; ways.forEach(w => { w.done = false; w.mesh.material.color.setHex(0xffffff); w.tag.classList.remove('done'); }); exits.forEach(x => { x.done = false; x.line.material.color.setHex(0xffffff); x.tag.classList.remove('done'); }); if (hold){ hold.t = 0; hold.done = false; hold.fill.scale.setScalar(.001); hold.tag.classList.remove('done'); } timeLeft = M.time || 0; $('time').textContent = Math.ceil(timeLeft); }
+  const inPad = (p, x, z) => Math.abs(x - p.x) < p.w/2 && Math.abs(z - p.z) < p.d/2;
   const solids = [], t = .05;
-  const mat = c => new THREE.MeshStandardMaterial({color:c, roughness:.38, metalness:0, side:THREE.DoubleSide});
+  const mat = c => { const m = new THREE.MeshStandardMaterial({color:c, roughness:.38, metalness:0, side:THREE.DoubleSide}); m.userData.base = c; return m; };
   function panel(g, m, w, h, d, x, y, z, rx=0, walk=false){ const geo = new THREE.BoxGeometry(w, h, d); geo.computeBoundingBox(); const mesh = new THREE.Mesh(geo, m); mesh.position.set(x,y,z); mesh.rotation.x = rx; mesh.userData.walk = walk; g.add(mesh); solids.push(mesh); return mesh; }
   function shape(g, m, pts, depth, pos, ry){ const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(p => s.lineTo(p[0], p[1])); s.closePath(); const geo = new THREE.ExtrudeGeometry(s, {depth, bevelEnabled:false}); geo.translate(0,0,-depth/2); geo.computeBoundingBox(); const mesh = new THREE.Mesh(geo, m); mesh.position.set(...pos); mesh.rotation.y = ry || 0; g.add(mesh); solids.push(mesh); return mesh; }
-  function piece(x, z, ry, build){ const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y = ry; build(g); g.traverse(o => { if (o.isMesh) o.userData.root = g; }); scene.add(g); return g; }
+  const pieces = [];
+  function piece(x, z, ry, build){ const g = new THREE.Group(); pieces.push(g); g.position.set(x,0,z); g.rotation.y = ry; build(g); g.traverse(o => { if (o.isMesh) o.userData.root = g; }); scene.add(g); return g; }
   piece(-5.6, -2.6, .3, g => { const m = mat(COL.blue), side = [[-.6,0],[.6,0],[.6,1.4],[0,1.95],[-.6,1.4]]; shape(g, m, side, t, [-.7,0,0], Math.PI/2); shape(g, m, side, t, [.7,0,0], Math.PI/2); panel(g, m, 1.45, 1.4, t, 0, .7, -.6); const L = Math.hypot(.6,.55), a = Math.atan2(.55,.6); panel(g, m, 1.45, t, L, 0, 1.675, -.3, -a); panel(g, m, 1.45, t, L, 0, 1.675, .3, a); panel(g, m, 1.35, t, .55, 0, .45, -.3, 0, true); });
   piece(-2.4, 2.4, -.2, g => { const m = mat(COL.green); panel(g, m, 1.3, 2.0, t, 0, 1.0, -.5); panel(g, m, t, 2.0, 1.0, -.65, 1.0, 0); panel(g, m, 1.3, t, 1.0, 0, 2.0, 0); panel(g, m, 1.3, t, 1.0, 0, .02, 0, 0, true); panel(g, m, 1.2, t, .5, 0, .5, -.22, 0, true); });
   piece(1.0, -2.8, .5, g => { const m = mat(COL.grey), s = .95; panel(g, m, s, s, t, 0, s/2, -s/2); panel(g, m, t, s, s, -s/2, s/2, 0); panel(g, m, t, s, s, s/2, s/2, 0); panel(g, m, s, t, s, 0, s, 0); panel(g, m, s, t, s, 0, .02, 0, 0, true); });
@@ -343,8 +386,9 @@ const gaze = (() => {
   piece(6.2, 2.8, Math.PI, g => { const m = mat(COL.yellow), w = 1.1, h = 1.45, d = .9; panel(g, m, w, h, t, 0, h/2, -d/2); panel(g, m, t, h, d, -w/2, h/2, 0); panel(g, m, t, h, d, w/2, h/2, 0); panel(g, m, w, t, d, 0, h, 0); panel(g, m, w-.05, t, .45, 0, .45, -.2, 0, true); });
 
   const me = document.createElement('div'); me.className = 'me'; stage.appendChild(me);
+  stage.insertAdjacentHTML('beforeend', '<div class="mission-card"><span class="mk">Mission</span><span id="mission"></span></div>');
+  stage.querySelector('.hud').insertAdjacentHTML('beforeend', '<span id="timeWrap" hidden>Time <b id="time">0</b></span>');
   const tagS = document.createElement('div'); tagS.className = 'tag'; tagS.textContent = 'START'; stage.appendChild(tagS);
-  const tagE = document.createElement('div'); tagE.className = 'tag exit'; tagE.textContent = 'EXIT'; stage.appendChild(tagE);
   const person = new THREE.Vector3(START.x, 0, START.z), target = person.clone();
   const EYE_SVG = '<svg viewBox="0 0 52 34"><g class="open"><path d="M3 17 Q26 -3 49 17 Q26 37 3 17Z" fill="#000" stroke="#fff" stroke-width="1.6"/><g class="iris"><circle cx="26" cy="17" r="8" fill="#fff"/><circle cx="26" cy="17" r="3.4" fill="#ff1d1d"/></g></g><g class="closed" fill="none" stroke="#ff1d1d" stroke-width="1.8" stroke-linecap="round"><path d="M3 15 Q26 31 49 15"/><path d="M14 22 L11 29 M26 25 L26 32 M38 22 L41 29"/></g></svg>';
   const gazeSolid = new THREE.LineBasicMaterial({color:RED}), gazeDash = new THREE.LineDashedMaterial({color:RED, dashSize:.2, gapSize:.15});
@@ -358,8 +402,8 @@ const gaze = (() => {
   function blocked(x, z){ if (Math.abs(x) > ROOM_W/2 - R || Math.abs(z) > ROOM_D/2 - R) return true; for (const m of solids){ if (m.userData.walk) continue; for (const y of [.3, .8]){ tmp.set(x, y, z); m.worldToLocal(tmp); const b = m.geometry.boundingBox; if (tmp.x > b.min.x - R && tmp.x < b.max.x + R && tmp.y > b.min.y - .05 && tmp.y < b.max.y + .05 && tmp.z > b.min.z - R && tmp.z < b.max.z + R) return true; } } return false; }
   let phase = 'intro', level = 1, attempts = 0, best = store.get('gaze-best-level', 0);
   $('best').textContent = best;
-  const eyeCount = () => Math.min(1 + Math.floor((level-1)/2), 3);
-  const restTime = () => T(Math.max(2.2, 4.8 - (level-1)*.45) + Math.random()*1.4);
+  const eyeCount = () => M.eyes;
+  const restTime = () => T(Math.max(1.8, 4.8 - (level-1)*.35) + Math.random()*1.4);
   const WARN = T(2.0), OPEN = T(2.2), SPEED = 4.2;
   const CARDS = [
     'From a third-floor window I could watch the courtyard all day. Week 1 began with four points of view: surroundings, site, observer and object.',
@@ -371,15 +415,16 @@ const gaze = (() => {
   ];
   function setPhase(p){
     phase = p; stage.classList.toggle('plan', p === 'plan'); $('goBtn').textContent = p === 'run' ? 'Back to plan' : 'Go';
-    if (p === 'plan'){ $('phT').textContent = 'Plan'; $('phS').textContent = 'Drag the furniture to build a hidden route from Start to Exit. Click a piece to rotate it.'; person.set(START.x, 0, START.z); target.copy(person); eyes.forEach(e => { e.phase = 'rest'; e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); }
-    if (p === 'run'){ attempts++; $('att').textContent = attempts; $('phT').textContent = 'Go'; $('phS').textContent = 'Move the cursor to walk. Reach the Exit without being seen.'; eyes.forEach((e,i) => { e.phase = 'rest'; e.t = 0; e.rest = T(1.2 + i*1.8); }); }
+    if (p === 'plan'){ resetMission(); $('phT').textContent = 'Plan'; $('phS').textContent = 'Drag the furniture to hide your route. Click a piece to rotate it.'; person.set(START.x, 0, START.z); target.copy(person); eyes.forEach(e => { e.phase = 'rest'; e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); }
+    if (p === 'run'){ attempts++; $('att').textContent = attempts; $('phT').textContent = 'Go'; $('phS').textContent = 'Move the cursor to walk. Complete the mission without being seen.'; resetMission(); eyes.forEach((e,i) => { e.phase = 'rest'; e.t = 0; e.rest = T(2.4 + i*1.6); }); }
   }
   $('lvl').textContent = level; $('neyes').textContent = eyeCount();
   let toastT = 0;
   function toast(msg, bad){ const e = $('toast'); e.textContent = msg; e.className = 'toast on' + (bad ? ' bad' : ''); toastT = 1.2; }
+  function failed(msg){ toast(msg, true); me.classList.add('seen'); phase = 'caught'; setTimeout(() => { me.classList.remove('seen'); if (phase === 'caught') setPhase('plan'); }, 1300); }
   function caught(){ toast('Seen', true); me.classList.add('seen'); phase = 'caught'; setTimeout(() => { me.classList.remove('seen'); if (phase === 'caught') setPhase('plan'); }, 1300); }
   function escaped(){ phase = 'card'; eyes.forEach(e => { e.el.className = 'eye'; e.s.visible = e.d.visible = e.mk.visible = false; }); if (level > best){ best = level; store.set('gaze-best-level', best); $('best').textContent = best; } $('cardK').textContent = `Level ${level} cleared · ${attempts} attempt${attempts === 1 ? '' : 's'}`; $('cardP').textContent = CARDS[(level-1) % CARDS.length]; $('card').hidden = false; $('cardBtn').focus(); }
-  $('cardBtn').addEventListener('click', () => { level++; attempts = 0; $('att').textContent = 0; $('lvl').textContent = level; $('neyes').textContent = eyeCount(); $('card').hidden = true; setPhase('plan'); toast(`Level ${level}`); });
+  $('cardBtn').addEventListener('click', () => { level++; M = MISSIONS[level-1] || genMission(level); buildMission(); attempts = 0; $('att').textContent = 0; $('lvl').textContent = level; $('neyes').textContent = eyeCount(); $('card').hidden = true; setPhase('plan'); toast(`Level ${level}`); });
   $('startBtn').addEventListener('click', () => { $('intro').hidden = true; setPhase('plan'); });
   $('goBtn').addEventListener('click', () => { if (phase === 'plan') setPhase('run'); else if (phase === 'run') setPhase('plan'); });
   $('infoBtn').addEventListener('click', () => { const d = $('drawer'); d.hidden = !d.hidden; $('infoBtn').setAttribute('aria-expanded', String(!d.hidden)); });
@@ -387,7 +432,7 @@ const gaze = (() => {
   let dragging = null, downAt = null, dragMoved = false;
   const onCanvas = e => e.target === renderer.domElement;
   function setNdc(e){ const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera); ray.far = Infinity; }
-  function pick(){ const h = ray.intersectObjects(solids, false); return h.length ? h[0].object.userData.root : null; }
+  function pick(){ const h = ray.intersectObjects(solids, false); const g = h.length ? h[0].object.userData.root : null; if (g && g.userData.locked){ toast('Bolted down', true); return null; } return g; }
   const clamp = (v, m) => Math.max(-m, Math.min(m, v));
   stage.addEventListener('pointerdown', e => { if (!onCanvas(e)) return; setNdc(e); if (phase === 'plan'){ const p = pick(); if (p && ray.ray.intersectPlane(floor, pt)){ dragging = p; downAt = [e.clientX, e.clientY]; dragMoved = false; off.copy(p.position).sub(pt); stage.classList.add('grabbing'); stage.setPointerCapture(e.pointerId); } } else if (phase === 'run' && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
   stage.addEventListener('pointermove', e => { setNdc(e); if (dragging){ if (!dragMoved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) return; dragMoved = true; if (ray.ray.intersectPlane(floor, pt)){ dragging.position.x = clamp(pt.x + off.x, ROOM_W/2 - .8); dragging.position.z = clamp(pt.z + off.z, ROOM_D/2 - .8); } return; } if (phase === 'run' && (e.pointerType === 'mouse' || e.buttons) && ray.ray.intersectPlane(floor, pt)) target.set(pt.x, 0, pt.z); });
@@ -406,11 +451,18 @@ const gaze = (() => {
     if (phase === 'run'){
       const dx = target.x - person.x, dz = target.z - person.z, dist = Math.hypot(dx, dz);
       if (dist > .02){ const step = Math.min(dist, SPEED*dt), nx = person.x + dx/dist*step, nz = person.z + dz/dist*step; if (!blocked(nx, nz)){ person.x = nx; person.z = nz; } else if (!blocked(nx, person.z)) person.x = nx; else if (!blocked(person.x, nz)) person.z = nz; }
-      if (Math.abs(person.x - EXIT.x) < EXIT.w/2 && Math.abs(person.z - EXIT.z) < EXIT.d/2) escaped();
+      ways.forEach((w, i) => { if (!w.done && Math.hypot(person.x - w.x, person.z - w.z) < .6){ if (M.ordered && i !== nextWay){ if (!w.warned){ w.warned = true; toast('Go to ' + '①②③④⑤'[nextWay] + ' first', true); setTimeout(() => w.warned = false, 1500); } return; } w.done = true; nextWay++; w.mesh.material.color.setHex(0x444444); w.tag.classList.add('done'); toast('✓'); } });
+      if (hold && !hold.done){ if (Math.hypot(person.x - hold.x, person.z - hold.z) < .86 && Math.hypot(target.x - person.x, target.z - person.z) < .5){ hold.t += dt; hold.fill.scale.setScalar(Math.max(.001, Math.min(1, hold.t/hold.sec))); if (hold.t >= hold.sec){ hold.done = true; hold.tag.classList.add('done'); toast('✓'); } } else if (hold.t > 0){ hold.t = 0; hold.fill.scale.setScalar(.001); } }
+      const ready = ways.every(w => w.done) && (!hold || hold.done);
+      exits.forEach(x => { if (!x.done && inPad(x, person.x, person.z)){ if (!ready){ if (!x.warned){ x.warned = true; toast('Mission not finished', true); setTimeout(() => x.warned = false, 1500); } return; } x.done = true; x.line.material.color.setHex(0x444444); x.tag.classList.add('done'); } });
+      if (ready && exits.every(x => x.done)) escaped();
+      else if (M.time){ timeLeft -= dt; $('time').textContent = Math.max(0, Math.ceil(timeLeft)); if (timeLeft <= 0) failed('Too slow'); }
     }
     const [mx, my] = place(me, person, W, H);
     place(tagS, tmpV.set(START.x, 0, START.z + START.d/2 + .5), W, H);
-    place(tagE, tmpV.set(EXIT.x, 0, EXIT.z + EXIT.d/2 + .5), W, H);
+    ways.forEach(w => place(w.tag, tmpV.set(w.x, 0, w.z + .9), W, H));
+    exits.forEach(x => place(x.tag, tmpV.set(x.x, 0, x.z + x.d/2 + .5), W, H));
+    if (hold) place(hold.tag, tmpV.set(hold.x, 0, hold.z + 1.35), W, H);
     head.set(person.x, HEAD_H, person.z);
     eyes.forEach((e, i) => {
       e.s.visible = e.d.visible = e.mk.visible = false;
@@ -434,6 +486,7 @@ const gaze = (() => {
     if (toastT > 0){ toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
     renderer.render(scene, camera);
   }
+  buildMission(); resetMission();
   requestAnimationFrame(frame);
   return {resize};
 })();
